@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Segoo.Ro POS Web App</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0d0d1e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Segoo.Ro">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/neon/512/experimental-shopping-cart-neon.png">
+    
+    <!-- Link PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+    
+    <!-- Tailwind CSS & FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Glassmorphism Classes */
+        .glass-bg {
+            background: linear-gradient(135deg, #0d0d1e 0%, #1a153b 100%);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Sticky Columns for Mobile Rekap Table */
+        .sticky-left-col {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background: #110e2d; /* Background solid sesuai tema untuk menimpa elemen di bawahnya */
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .sticky-right-col {
+            position: sticky;
+            right: 0;
+            z-index: 10;
+            background: #130f32;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Freeze/Sticky Header (Tanggal) saat Scroll Kebawah */
+        .sticky-th {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background-color: #0f0f1d !important;
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+        }
+        /* Sel Sudut yang harus sticky secara horizontal sekaligus vertikal */
+        .sticky-corner-left {
+            position: sticky;
+            top: 0;
+            left: 0;
+            z-index: 30;
+            background-color: #0f0f1d !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .sticky-corner-right {
+            position: sticky;
+            top: 0;
+            right: 0;
+            z-index: 30;
+            background-color: #0f0f1d !important;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* Interactive Crosshair Highlights */
+        .highlight-row {
+            background-color: rgba(99, 102, 241, 0.15) !important;
+        }
+        .highlight-col {
+            background-color: rgba(139, 92, 246, 0.1) !important;
+        }
+        .highlight-cell {
+            background-color: rgba(168, 85, 247, 0.3) !important;
+            font-weight: bold;
+            color: #ffffff !important;
+        }
+
+        /* Mengatasi batasan transformasi CSS ketika Fullscreen diaktifkan */
+        .fullscreen-active #view-rekap {
+            transform: none !important;
+            animation: none !important;
+            position: static !important;
+        }
+        /* Sembunyikan Navigasi Bawah dan Header secara mutlak saat Fullscreen */
+        .fullscreen-active nav {
+            display: none !important;
+        }
+        .fullscreen-active header {
+            display: none !important;
+        }
+
+        /* Custom Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes scaleUp {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .animate-scale {
+            animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="glass-bg text-slate-100 min-h-screen font-sans flex justify-center selection:bg-indigo-500 selection:text-white">
+
+    <!-- MAIN CONTAINER (Shell App Tinggi Presisi sesuai Layar HP) -->
+    <div id="app-container" class="w-full max-w-md h-[100dvh] flex flex-col justify-between relative shadow-2xl overflow-hidden">
+        
+        <!-- ========================================== -->
+        <!-- HEADER UTAMA (Selalu Berada di Atas)     -->
+        <!-- ========================================== -->
+        <header class="p-5 pb-3 border-b border-white/5 flex flex-col items-center gap-1 shrink-0 relative">
+            
+            <!-- Tombol Pengaturan API (Gear) -->
+            <button onclick="toggleSettingsModal(true)" class="absolute top-5 right-5 text-slate-400 hover:text-indigo-400 transition-colors duration-200">
+                <i class="fa-solid fa-gear text-lg"></i>
+            </button>
+
+            <p class="text-[10px] tracking-[0.25em] text-indigo-400 font-extrabold uppercase">Pencatatan Penjualan Menu</p>
+            <h1 class="text-2xl font-black tracking-tight bg-gradient-to-r from-white via-indigo-200 to-purple-400 bg-clip-text text-transparent">SEGOO.RO</h1>
+            
+            <!-- Selector Dropdown Cabang -->
+            <div class="relative mt-1">
+                <select id="cabang-selector" onchange="onCabangChanged()" class="appearance-none bg-indigo-950/40 border border-indigo-500/30 text-indigo-200 text-xs font-bold px-4 py-1.5 pr-8 rounded-full focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/30 transition-all cursor-pointer">
+                    <option value="pati" selected>CABANG PATI 📍</option>
+                    <option value="kudus">CABANG KUDUS 📍</option>
+                    <option value="rembang">CABANG REMBANG 📍</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-indigo-400">
+                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: CATAT PENJUALAN (GRID PESANAN)    -->
+        <!-- ========================================== -->
+        <main id="view-order" class="flex-grow flex flex-col overflow-hidden animate-fade-in p-4 gap-4 pb-20">
+            
+            <!-- Banner Peringatan Demo Mode -->
+            <div id="demo-banner" class="bg-amber-500/20 border border-amber-500/30 text-amber-200 p-3 rounded-2xl flex items-center justify-between gap-3 shrink-0 animate-scale hidden">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+                    <p class="text-[10px] font-semibold leading-relaxed">Mode Demo Offline. Sambungkan ke Google Sheets lewat tombol ⚙️ di kanan atas.</p>
+                </div>
+            </div>
+
+            <!-- Kontrol Tanggal Penjualan -->
+            <div class="flex items-center justify-between glass-card p-3 rounded-2xl border border-white/5 gap-3">
+                <span class="text-xs font-bold tracking-wider text-slate-400 uppercase flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-check text-indigo-400"></i> Tanggal Penjualan
+                </span>
+                <input type="date" id="order-date" class="bg-indigo-950/30 border border-white/10 text-xs rounded-xl px-3 py-1.5 font-semibold text-slate-200 focus:outline-none focus:border-indigo-500 transition-all cursor-pointer">
+            </div>
+
+            <!-- Tab Kategori Menu (Scrollable Horizontal) -->
+            <div class="flex gap-2 overflow-x-auto custom-scroll pb-1 shrink-0" id="category-tabs-container">
+                <div class="text-xs text-slate-500 animate-pulse py-2">Memuat kategori...</div>
+            </div>
+
+            <!-- Container Grid Tombol Menu (Scrollable) -->
+            <div class="flex-grow overflow-y-auto custom-scroll pr-1">
+                <div class="grid grid-cols-3 gap-2" id="menu-grid-container">
+                    <div class="col-span-3 text-center text-xs text-slate-500 py-10">
+                        <i class="fa-solid fa-circle-notch animate-spin text-lg mb-2"></i><br>Memuat menu...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tombol Navigasi Preview Item -->
+            <div class="pt-2 shrink-0">
+                <button onclick="switchView('preview')" class="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:brightness-110 active:scale-[0.98] text-white font-extrabold text-xs tracking-wider py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cart-shopping"></i> PREVIEW ITEM
+                    <span id="cart-badge" class="bg-white text-indigo-950 font-black text-[10px] w-5 h-5 flex items-center justify-center rounded-full ml-1 hidden">0</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: PREVIEW ITEM (KERANJANG BELANJA)   -->
+        <!-- ========================================== -->
+        <main id="view-preview" class="flex-grow flex flex-col overflow-hidden hidden animate-fade-in p-4 gap-4 pb-20">
+            <div class="flex items-center justify-between shrink-0">
+                <h2 class="text-sm font-bold tracking-wider text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-indigo-400"></i> PREVIEW PENJUALAN
+                </h2>
+                <span id="preview-date-label" class="text-[10px] bg-white/5 border border-white/5 px-2.5 py-1 rounded-full font-semibold text-indigo-300">
+                    -
+                </span>
+            </div>
+
+            <!-- Scrollable List Preview Keranjang -->
+            <div class="flex-grow overflow-y-auto custom-scroll pr-1 border border-white/5 rounded-2xl bg-black/20 p-2" id="preview-list-container">
+                <!-- Diisi otomatis via JS -->
+            </div>
+
+            <!-- Tombol Kembali & Submit -->
+            <div class="grid grid-cols-2 gap-3 shrink-0 pt-2">
+                <button onclick="switchView('order')" class="bg-white/5 border border-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs py-4 rounded-2xl transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> KEMBALI
+                </button>
+                <button onclick="submitPenjualan()" id="btn-submit" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-110 active:scale-[0.98] text-white font-black text-xs tracking-wider py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane animate-pulse"></i> SUBMIT
+                </button>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: REKAP BULANAN (MATRIKS LAPORAN)   -->
+        <!-- ========================================== -->
+        <main id="view-rekap" class="flex-grow flex flex-col overflow-hidden hidden animate-fade-in p-4 gap-3 pb-20">
+            <!-- Filter Bulan dan Tahun -->
+            <div class="grid grid-cols-2 gap-2 shrink-0">
+                <div class="glass-card p-2 rounded-xl border border-white/5 flex flex-col gap-1">
+                    <label class="text-[9px] font-bold tracking-wider text-slate-400 uppercase">Bulan</label>
+                    <select id="rekap-bulan" onchange="fetchRekapData()" class="bg-transparent text-xs font-semibold text-indigo-300 focus:outline-none cursor-pointer">
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7" selected>Juli</option>
+                        <option value="8">Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                </div>
+                <div class="glass-card p-2 rounded-xl border border-white/5 flex flex-col gap-1">
+                    <label class="text-[9px] font-bold tracking-wider text-slate-400 uppercase">Tahun</label>
+                    <select id="rekap-tahun" onchange="fetchRekapData()" class="bg-transparent text-xs font-semibold text-indigo-300 focus:outline-none cursor-pointer">
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                        <option value="2027">2027</option>
+                        <option value="2028">2028</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Header Dashboard Peringkat (Bisa di-Collapse) -->
+            <div class="flex items-center justify-between shrink-0 px-1 mt-1">
+                <h3 class="text-[10px] font-black tracking-widest text-indigo-400 uppercase">Dashboard Peringkat</h3>
+                <div class="flex gap-2">
+                    <button onclick="toggleDashboardCollapse()" id="btn-toggle-dashboard" class="text-xs text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 bg-white/5 border border-white/5 px-2 py-1 rounded-lg">
+                        <i id="toggle-dashboard-icon" class="fa-solid fa-eye-slash"></i> <span id="toggle-dashboard-text">Sembunyikan</span>
+                    </button>
+                    <button onclick="showRankingsModal()" class="text-xs text-indigo-300 hover:text-indigo-200 transition-all flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 rounded-lg">
+                        <i class="fa-solid fa-ranking-star"></i> Lihat Selengkapnya
+                    </button>
+                </div>
+            </div>
+
+            <!-- CONTAINER CARD PERINGKAT (DASHBOARD) -->
+            <div id="dashboard-rankings-container" class="grid grid-cols-2 gap-2 shrink-0 transition-all duration-300">
+                <!-- Terlaris Bulan Ini -->
+                <div class="glass-card p-3 rounded-2xl border border-white/5 flex flex-col gap-1.5">
+                    <span class="text-[9px] font-extrabold tracking-wider text-slate-400 uppercase flex items-center gap-1">
+                        <i class="fa-solid fa-calendar-minus text-indigo-400"></i> Terlaris Bulan Ini
+                    </span>
+                    <div class="flex flex-col gap-1 mt-1" id="top-monthly-list">
+                        <!-- Diisi otomatis -->
+                    </div>
+                </div>
+
+                <!-- Terlaris Sepanjang Waktu -->
+                <div class="glass-card p-3 rounded-2xl border border-white/5 flex flex-col gap-1.5">
+                    <span class="text-[9px] font-extrabold tracking-wider text-slate-400 uppercase flex items-center gap-1">
+                        <i class="fa-solid fa-crown text-amber-400"></i> Sepanjang Waktu
+                    </span>
+                    <div class="flex flex-col gap-1 mt-1" id="top-alltime-list">
+                        <!-- Diisi otomatis -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD MATRIKS TABEL -->
+            <div id="rekap-table-card" class="flex-grow flex flex-col glass-card border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 relative">
+                <!-- Header Card Matriks -->
+                <div class="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between shrink-0">
+                    <span class="text-[10px] font-bold tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+                        <i class="fa-solid fa-table-cells"></i> Matriks Penjualan Harian
+                    </span>
+                    <!-- Tombol Fullscreen -->
+                    <button onclick="toggleFullscreenTable()" class="text-[9px] font-extrabold tracking-widest text-indigo-300 hover:text-indigo-200 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 px-2 py-1 rounded-lg transition-all flex items-center gap-1.5">
+                        <i id="fullscreen-icon" class="fa-solid fa-expand"></i> <span id="fullscreen-text">FULLSCREEN</span>
+                    </button>
+                </div>
+
+                <!-- Scrollable Table Wrapper -->
+                <div class="overflow-x-auto overflow-y-auto flex-grow custom-scroll" id="rekap-table-wrapper">
+                    <table class="w-full text-xs text-left border-collapse table-fixed min-w-[700px]">
+                        <thead>
+                            <tr id="rekap-header-row" class="text-[10px] tracking-wider uppercase text-slate-400 sticky top-0 z-20">
+                                <th class="w-28 px-3 py-3 sticky-corner-left text-slate-300 font-bold bg-[#0f0f1d]">MENU</th>
+                                <!-- Kolom Tanggal 1-31 di-inject dinamis oleh JS -->
+                                <th class="w-14 px-2 py-3 text-center sticky-corner-right text-indigo-300 font-bold bg-[#0f0f1d]">JML</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rekap-table-body">
+                            <!-- Diisi otomatis via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tombol Kembali ke Catat Penjualan -->
+            <div class="pt-1 shrink-0">
+                <button onclick="switchView('order')" class="w-full bg-white/5 border border-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs py-3 rounded-2xl transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> KEMBALI KE CATAT PENJUALAN
+                </button>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- NAVIGASI BAWAH (PERSISTENT STICKY FOOTER)  -->
+        <!-- ========================================== -->
+        <nav class="absolute bottom-0 left-0 right-0 h-16 glass-panel border-t border-white/5 flex justify-around items-center z-40 px-6 shrink-0">
+            <!-- Nav: Catat Penjualan -->
+            <button onclick="switchView('order')" id="nav-btn-order" class="flex flex-col items-center gap-1 group text-indigo-400 transition-all">
+                <div class="relative">
+                    <i class="fa-solid fa-cash-register text-lg group-hover:scale-110 transition-transform"></i>
+                </div>
+                <span class="text-[9px] font-bold tracking-wider">Catat Penjualan</span>
+            </button>
+
+            <!-- Nav: Rekap Penjualan -->
+            <button onclick="switchView('rekap')" id="nav-btn-rekap" class="flex flex-col items-center gap-1 group text-slate-400 transition-all hover:text-slate-200">
+                <i class="fa-solid fa-chart-line text-lg group-hover:scale-110 transition-transform"></i>
+                <span class="text-[9px] font-semibold tracking-wider">Rekap Laporan</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- CUSTOM NOTIFICATION BOX (Ganti dari alert) -->
+    <!-- ========================================== -->
+    <div id="custom-toast" class="fixed top-6 left-1/2 -translate-x-1/2 max-w-xs w-full px-4 hidden z-50 animate-scale">
+        <div class="glass-panel p-4 rounded-2xl flex items-center gap-3 shadow-2xl border border-white/10" id="toast-border">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" id="toast-icon-bg">
+                <i id="toast-icon" class="fa-solid text-white text-sm"></i>
+            </div>
+            <div class="flex-grow">
+                <h4 class="font-bold text-xs text-slate-100" id="toast-title">Notifikasi</h4>
+                <p class="text-[10px] text-slate-400 mt-0.5 leading-relaxed" id="toast-msg">Pesan notifikasi.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SETTINGS MODAL (PENGATURAN API)            -->
+    <!-- ========================================== -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/75 backdrop-blur-md hidden items-center justify-center z-[120] p-6 animate-fade-in">
+        <div class="glass-panel p-5 rounded-3xl max-w-xs w-full flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-indigo-400"></i> Pengaturan API GAS
+                </h3>
+                <button onclick="toggleSettingsModal(false)" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="mt-4 flex flex-col gap-3">
+                <p class="text-[10px] text-slate-400 leading-relaxed">
+                    Masukkan URL Web App dari Google Apps Script yang telah dideploy untuk menyambungkan aplikasi PWA ini ke database Google Sheets secara real-time.
+                </p>
+                <input type="text" id="setting-api-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-indigo-950/40 border border-white/10 rounded-xl px-3 py-2.5 text-[11px] text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-5">
+                <button onclick="toggleSettingsModal(false)" class="bg-white/5 border border-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs py-2 rounded-xl transition-all">BATAL</button>
+                <button onclick="saveSettings()" class="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xs py-2 rounded-xl transition-all">SIMPAN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- RANKINGS MODAL (POP-UP LIST PERINGKAT)     -->
+    <!-- ========================================== -->
+    <div id="rankings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center z-[110] p-6 animate-fade-in">
+        <div class="glass-panel p-5 rounded-3xl max-w-xs w-full flex flex-col max-h-[80vh] shadow-2xl">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-ranking-star text-indigo-400"></i> Peringkat Penjualan Menu
+                </h3>
+                <button onclick="toggleRankingsModal(false)" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Tab Filter Peringkat Modal -->
+            <div class="grid grid-cols-2 gap-2 mt-3 mb-2">
+                <button id="rank-tab-month" onclick="switchRankTab('month')" class="py-1.5 rounded-xl text-[10px] font-bold tracking-wider text-center transition-all bg-indigo-600/30 border border-indigo-500/20 text-white">BULAN INI</button>
+                <button id="rank-tab-alltime" onclick="switchRankTab('alltime')" class="py-1.5 rounded-xl text-[10px] font-bold tracking-wider text-center transition-all bg-white/5 border border-white/5 text-slate-400">SEPANJANG WAKTU</button>
+            </div>
+
+            <!-- Scrollable List -->
+            <div class="flex-grow overflow-y-auto custom-scroll py-2" id="rankings-list-container">
+                <!-- Diisi otomatis via JS -->
+            </div>
+
+            <button onclick="toggleRankingsModal(false)" class="mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:brightness-110 text-white font-bold text-xs py-2.5 rounded-xl transition-all w-full">TUTUP</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DAILY RANKINGS MODAL (POP-UP TANGGALAN)   -->
+    <!-- ========================================== -->
+    <div id="daily-rankings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center z-[110] p-6 animate-fade-in">
+        <div class="glass-panel p-5 rounded-3xl max-w-xs w-full flex flex-col max-h-[80vh] shadow-2xl">
+            <div class="flex justify-between items-center pb-3 border-b border-white/10">
+                <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-day text-indigo-400"></i> <span id="daily-rank-title">Peringkat Tanggal</span>
+                </h3>
+                <button onclick="toggleDailyRankingsModal(false)" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Scrollable List -->
+            <div class="flex-grow overflow-y-auto custom-scroll py-2 mt-2 flex flex-col gap-2" id="daily-rankings-list">
+                <!-- Diisi otomatis via JS -->
+            </div>
+
+            <button onclick="toggleDailyRankingsModal(false)" class="mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:brightness-110 text-white font-bold text-xs py-2.5 rounded-xl transition-all w-full">TUTUP</button>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCRIPT & LOGIC -->
+    <script>
+        // LocalStorage Keys
+        const STORAGE_KEYS = {
+            GAS_API_URL: "segooro_gas_api_url"
+        };
+
+        // Ambil URL API GAS dari penyimpanan lokal
+        function getGasApiUrl() {
+            return localStorage.getItem(STORAGE_KEYS.GAS_API_URL) || "";
+        }
+
+        // State Utama Master Menu (Ditarik secara dinamis dari Spreadsheet)
+        let masterData = [];
+
+        // State Aplikasi
+        let currentCategory = "";
+        let cart = {}; // format: { "Nama Menu": Qty }
+        let currentView = "order"; // order, preview, rekap
+        let currentReportData = {}; // Menyimpan data rekap aktif secara global
+
+        // Pemetaan ID Spreadsheet untuk masing-masing Cabang
+        const SPREADSHEET_IDS = {
+            pati: "160guJrfdcvQ7G52sWYcw1apaQcWJvGRZXi2bjiFuTfw",
+            kudus: "SPREADSHEET_ID_KUDUS_MOCK", // Ganti dengan ID asli nanti
+            rembang: "SPREADSHEET_ID_REMBANG_MOCK" // Ganti dengan ID asli nanti
+        };
+
+        // State untuk Peringkat (Rankings)
+        let rankedMonthData = [];
+        let rankedAlltimeData = [];
+        let activeRankTab = "month"; // month, alltime
+
+        // State Sorot/Highlight Kolom & Baris
+        let activeColHighlight = null;
+        let activeRowHighlight = null;
+
+        // Buka / Tutup Modal Setting Cog
+        function toggleSettingsModal(show) {
+            const modal = document.getElementById("settings-modal");
+            if (show) {
+                document.getElementById("setting-api-url").value = getGasApiUrl();
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+            } else {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+
+        // Simpan Konfigurasi URL API GAS
+        function saveSettings() {
+            const urlInput = document.getElementById("setting-api-url").value.trim();
+            if (urlInput && !urlInput.startsWith("https://script.google.com/")) {
+                showNotification("warning", "Format URL Salah", "Gunakan URL Google Apps Script Web App yang valid.");
+                return;
+            }
+
+            if (urlInput) {
+                localStorage.setItem(STORAGE_KEYS.GAS_API_URL, urlInput);
+                showNotification("success", "Tersimpan", "URL API GAS berhasil dikonfigurasi!");
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.GAS_API_URL);
+                showNotification("warning", "Reset Selesai", "Aplikasi kembali menggunakan mode demo lokal.");
+            }
+
+            toggleSettingsModal(false);
+            checkApiConnection();
+            fetchMasterMenu(); // Muat ulang data menu menggunakan API baru
+        }
+
+        // Cek konektivitas API untuk memunculkan atau menyembunyikan banner demo
+        function checkApiConnection() {
+            const banner = document.getElementById("demo-banner");
+            if (getGasApiUrl()) {
+                banner.classList.add("hidden");
+            } else {
+                banner.classList.remove("hidden");
+            }
+        }
+
+        // Ambil data Master_Menu secara Dinamis dari Google Spreadsheet / REST API
+        function fetchMasterMenu() {
+            const apiUrl = getGasApiUrl();
+            const cabang = document.getElementById("cabang-selector").value;
+            const spreadsheetId = SPREADSHEET_IDS[cabang];
+            const container = document.getElementById("menu-grid-container");
+
+            // Jika tidak ada URL API, jalankan mode simulasi lokal
+            if (!apiUrl) {
+                loadLocalDemoMenu();
+                return;
+            }
+
+            // Tampilkan visual loading pada grid
+            container.innerHTML = `
+                <div class="col-span-3 text-center text-xs text-slate-500 py-10">
+                    <i class="fa-solid fa-circle-notch animate-spin text-lg text-indigo-500 mb-2"></i><br>Menghubungkan ke API...
+                </div>
+            `;
+
+            // Gunakan fetch ke GAS Web App
+            fetch(apiUrl, {
+                method: "POST",
+                mode: "cors",
+                headers: {
+                    "Content-Type": "text/plain" // Bypass CORS preflight OPTIONS check
+                },
+                body: JSON.stringify({
+                    action: "getMasterMenu",
+                    spreadsheetId: spreadsheetId
+                })
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.status === "success") {
+                    masterData = resData.data;
+                    initCategoryTabs();
+                    if (masterData.length > 0) {
+                        selectCategory(masterData[0].kategori);
+                    }
+                } else {
+                    showNotification("error", "API Error", resData.message);
+                    loadLocalDemoMenu();
+                }
+            })
+            .catch(err => {
+                showNotification("error", "Koneksi Gagal", "Gagal menghubungi server. Menjalankan mode demo.");
+                loadLocalDemoMenu();
+            });
+        }
+
+        // Fallback memuat menu demo jika offline / belum ada API
+        function loadLocalDemoMenu() {
+            masterData = [
+                { kategori: "Makanan", menu: "Nasi Ayam Bakar" },
+                { kategori: "Makanan", menu: "Nasi Bebek Goreng" },
+                { kategori: "Makanan", menu: "Mie Goreng Special" },
+                { kategori: "Makanan", menu: "Nasi Ayam Geprek" },
+                { kategori: "Makanan", menu: "Soto Ayam Pati" },
+                { kategori: "Snack", menu: "Tempe Mendoan" },
+                { kategori: "Snack", menu: "Kentang Goreng" },
+                { kategori: "Snack", menu: "Cireng Rujak" },
+                { kategori: "Minuman", menu: "Es Campur" },
+                { kategori: "Minuman", menu: "Es Teh Manis" },
+                { kategori: "Minuman", menu: "Es Jeruk" },
+                { kategori: "Minuman", menu: "Lemon Tea" },
+                { kategori: "Minuman", menu: "Air Mineral" }
+            ];
+            initCategoryTabs();
+            selectCategory("Makanan");
+            generateDummyData(); // Buat log transaksi simulasi
+        }
+
+        // Generate Kolom Tanggal 1-31 di Header Laporan Secara Aman dengan Sticky Header
+        function generateTableHeaderDays() {
+            const headerRow = document.getElementById("rekap-header-row");
+            headerRow.innerHTML = `
+                <th class="w-28 px-3 py-3 sticky-corner-left text-slate-300 font-bold bg-[#0f0f1d]">MENU</th>
+                <th class="w-14 px-2 py-3 text-center sticky-corner-right text-indigo-300 font-bold bg-[#0f0f1d]">JML</th>
+            `;
+            
+            for (let i = 1; i <= 31; i++) {
+                const th = document.createElement("th");
+                th.className = `w-8 px-1 py-3 text-center border-r border-white/5 font-medium cursor-pointer transition-all hover:bg-indigo-500/20 col-header-${i} sticky-th`;
+                th.textContent = i;
+                th.onclick = function() {
+                    toggleColumnHighlight(i);
+                    showDailyRankings(i);
+                };
+                headerRow.insertBefore(th, headerRow.lastElementChild);
+            }
+        }
+
+        // Pindah Tampilan / View Utama (Single Page)
+        function switchView(viewName) {
+            currentView = viewName;
+            
+            const card = document.getElementById("rekap-table-card");
+            if (card.classList.contains("fixed") && viewName !== "rekap") {
+                toggleFullscreenTable();
+            }
+
+            document.getElementById("view-order").classList.add("hidden");
+            document.getElementById("view-preview").classList.add("hidden");
+            document.getElementById("view-rekap").classList.add("hidden");
+
+            document.getElementById(`view-${viewName}`).classList.remove("hidden");
+
+            const btnOrder = document.getElementById("nav-btn-order");
+            const btnRekap = document.getElementById("nav-btn-rekap");
+
+            btnOrder.className = "flex flex-col items-center gap-1 group text-slate-400 transition-all hover:text-slate-200";
+            btnRekap.className = "flex flex-col items-center gap-1 group text-slate-400 transition-all hover:text-slate-200";
+
+            if (viewName === "order" || viewName === "preview") {
+                btnOrder.className = "flex flex-col items-center gap-1 group text-indigo-400 transition-all";
+            } else if (viewName === "rekap") {
+                btnRekap.className = "flex flex-col items-center gap-1 group text-indigo-400 transition-all";
+                fetchRekapData(); 
+            }
+
+            if (viewName === "preview") {
+                renderPreviewList();
+            }
+        }
+
+        // Trigger saat dropdown Cabang diubah
+        function onCabangChanged() {
+            const selected = document.getElementById("cabang-selector").value;
+            showNotification("success", "Cabang Diubah", `Aplikasi dialihkan ke database ${selected.toUpperCase()}`);
+            fetchMasterMenu();
+            
+            cart = {};
+            updateCartBadge();
+
+            if (currentView === "rekap") {
+                fetchRekapData();
+            }
+        }
+
+        // Inisialisasi Tab Kategori secara dinamis berdasarkan masterData
+        function initCategoryTabs() {
+            const categories = [...new Set(masterData.map(item => item.kategori))];
+            currentCategory = categories[0] || "";
+
+            const container = document.getElementById("category-tabs-container");
+            container.innerHTML = "";
+
+            categories.forEach(cat => {
+                const btn = document.createElement("button");
+                btn.id = `tab-${cat.toLowerCase().replace(/\s+/g, '-')}`;
+                btn.className = `px-4 py-2 rounded-xl text-xs font-bold tracking-wider transition-all border whitespace-nowrap ${
+                    cat === currentCategory
+                        ? "bg-indigo-600/30 border-indigo-500/40 text-indigo-200 shadow-md"
+                        : "bg-white/5 border-white/5 text-slate-400 hover:bg-white/10"
+                }`;
+                btn.textContent = cat.toUpperCase();
+                btn.onclick = () => selectCategory(cat);
+                container.appendChild(btn);
+            });
+        }
+
+        // Ganti Kategori Menu
+        function selectCategory(category) {
+            currentCategory = category;
+            
+            const tabs = document.querySelectorAll("#category-tabs-container button");
+            tabs.forEach(tab => {
+                tab.className = "px-4 py-2 rounded-xl text-xs font-bold tracking-wider transition-all border whitespace-nowrap bg-white/5 border-white/5 text-slate-400 hover:bg-white/10";
+            });
+
+            const activeTab = document.getElementById(`tab-${category.toLowerCase().replace(/\s+/g, '-')}`);
+            if (activeTab) {
+                activeTab.className = "px-4 py-2 rounded-xl text-xs font-bold tracking-wider transition-all border whitespace-nowrap bg-indigo-600/30 border-indigo-500/40 text-indigo-200 shadow-md";
+            }
+
+            renderMenuGrid();
+        }
+
+        // Merender Grid Daftar Tombol Menu
+        function renderMenuGrid() {
+            const container = document.getElementById("menu-grid-container");
+            container.innerHTML = "";
+
+            const filteredMenu = masterData.filter(item => item.kategori === currentCategory);
+
+            if (filteredMenu.length === 0) {
+                container.innerHTML = `<div class="col-span-3 text-center text-xs text-slate-500 py-10">Belum ada menu di kategori ini.</div>`;
+                return;
+            }
+
+            filteredMenu.forEach(item => {
+                const isOrdered = cart[item.menu] && cart[item.menu] > 0;
+                
+                const btn = document.createElement("button");
+                btn.className = `p-4 h-28 rounded-2xl border text-center flex flex-col justify-between items-center transition-all ${
+                    isOrdered
+                        ? "bg-gradient-to-br from-indigo-600/30 to-purple-600/30 border-indigo-500/40 shadow-inner relative scale-[0.98]"
+                        : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10 active:scale-[0.97]"
+                }`;
+                
+                const qtyBadge = isOrdered 
+                    ? `<span class="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center border border-white/20 animate-scale">${cart[item.menu]}</span>` 
+                    : "";
+
+                btn.innerHTML = `
+                    ${qtyBadge}
+                    <div class="flex-grow flex items-center justify-center">
+                        <span class="text-xs font-bold leading-tight tracking-wide text-slate-200 px-1">${item.menu}</span>
+                    </div>
+                    <span class="text-[9px] font-extrabold tracking-widest text-indigo-400 uppercase mt-1">TAP +1</span>
+                `;
+                
+                btn.onclick = () => addToCart(item.menu);
+                container.appendChild(btn);
+            });
+        }
+
+        function addToCart(menuName) {
+            cart[menuName] = (cart[menuName] || 0) + 1;
+            updateCartBadge();
+            renderMenuGrid();
+        }
+
+        function decreaseCart(menuName) {
+            if (cart[menuName] && cart[menuName] > 0) {
+                cart[menuName]--;
+                if (cart[menuName] === 0) {
+                    delete cart[menuName];
+                }
+                updateCartBadge();
+                renderPreviewList();
+                renderMenuGrid();
+            }
+        }
+
+        function increaseCart(menuName) {
+            cart[menuName] = (cart[menuName] || 0) + 1;
+            updateCartBadge();
+            renderPreviewList();
+            renderMenuGrid();
+        }
+
+        function updateCartBadge() {
+            const badge = document.getElementById("cart-badge");
+            const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+
+            if (totalItems > 0) {
+                badge.textContent = totalItems;
+                badge.classList.remove("hidden");
+            } else {
+                badge.classList.add("hidden");
+            }
+        }
+
+        // Render List item di halaman Preview
+        function renderPreviewList() {
+            const container = document.getElementById("preview-list-container");
+            container.innerHTML = "";
+
+            const dateInput = document.getElementById("order-date").value;
+            const formattedDate = dateInput ? new Date(dateInput).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : "-";
+            document.getElementById("preview-date-label").textContent = formattedDate;
+
+            const orderedItems = Object.keys(cart);
+            if (orderedItems.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center text-center py-20 gap-3 text-slate-500">
+                        <i class="fa-solid fa-clipboard-list text-5xl opacity-40"></i>
+                        <p class="text-xs font-semibold">Keranjang masih kosong.<br>Silakan tap menu di depan terlebih dahulu.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const categories = [...new Set(masterData.map(m => m.kategori))];
+
+            categories.forEach(cat => {
+                const itemsInCat = masterData.filter(m => m.kategori === cat && cart[m.menu] > 0);
+                if (itemsInCat.length === 0) return;
+
+                const subHeader = document.createElement("div");
+                subHeader.className = "text-[9px] font-black tracking-widest text-indigo-400 uppercase mt-3 mb-1 px-2";
+                subHeader.textContent = cat;
+                container.appendChild(subHeader);
+
+                itemsInCat.forEach(item => {
+                    const row = document.createElement("div");
+                    row.className = "flex justify-between items-center bg-white/5 border border-white/5 p-3 rounded-xl mb-1.5 animate-scale";
+                    row.innerHTML = `
+                        <span class="text-xs font-semibold text-slate-200">${item.menu}</span>
+                        <div class="flex items-center gap-3">
+                            <button onclick="decreaseCart('${item.menu}')" class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-extrabold text-slate-400 hover:text-white hover:bg-indigo-500/20 active:scale-90 transition-all">-</button>
+                            <span class="text-xs font-bold text-slate-100 font-mono w-6 text-center">${cart[item.menu]}</span>
+                            <button onclick="increaseCart('${item.menu}')" class="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-xs font-extrabold text-slate-400 hover:text-white hover:bg-indigo-500/20 active:scale-90 transition-all">+</button>
+                        </div>
+                    `;
+                    container.appendChild(row);
+                });
+            });
+        }
+
+        // Pengiriman Transaksi Penjualan ke REST API Google Sheets
+        function submitPenjualan() {
+            const dateInput = document.getElementById("order-date").value;
+            if (!dateInput) {
+                showNotification("warning", "Tanggal Kosong", "Silakan tentukan Tanggal Penjualan terlebih dahulu.");
+                return;
+            }
+
+            const items = Object.entries(cart).filter(([_, qty]) => qty > 0);
+            if (items.length === 0) {
+                showNotification("warning", "Keranjang Kosong", "Tidak ada pesanan menu untuk disubmit.");
+                return;
+            }
+
+            const btnSubmit = document.getElementById("btn-submit");
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> PROSES SUBMIT...`;
+
+            const cabang = document.getElementById("cabang-selector").value;
+            const spreadsheetId = SPREADSHEET_IDS[cabang];
+            const apiUrl = getGasApiUrl();
+
+            const payload = {
+                action: "addTransaction",
+                cabang: cabang,
+                spreadsheetId: spreadsheetId,
+                tanggal: dateInput,
+                items: items.map(([menu, qty]) => ({ menu: menu, qty: qty }))
+            };
+
+            // Jalankan submit ke REST API jika terhubung
+            if (apiUrl) {
+                fetch(apiUrl, {
+                    method: "POST",
+                    mode: "cors",
+                    headers: {
+                        "Content-Type": "text/plain" // Bypass preflight
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(resData => {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i class="fa-solid fa-paper-plane"></i> SUBMIT`;
+                    if (resData.status === "success") {
+                        cart = {};
+                        updateCartBadge();
+                        switchView("order");
+                        renderMenuGrid();
+                        showNotification("success", "Berhasil Tersimpan", "Data transaksi sukses terkirim ke Google Sheets!");
+                    } else {
+                        showNotification("error", "Gagal Simpan", resData.message);
+                    }
+                })
+                .catch(err => {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i class="fa-solid fa-paper-plane"></i> SUBMIT`;
+                    showNotification("error", "Koneksi Gagal", "Gagal menghubungi API GAS: " + err.message);
+                });
+            } else {
+                // RUNNING LOCAL DEMO MODE (SIMULASI OFFLINE)
+                setTimeout(() => {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i class="fa-solid fa-paper-plane"></i> SUBMIT`;
+                    simulateLocalSave(dateInput, payload.items);
+                    cart = {};
+                    updateCartBadge();
+                    switchView("order");
+                    renderMenuGrid();
+                    showNotification("success", "Simulasi Berhasil", "[DEMO MODE] Data sukses disimpan ke log lokal!");
+                }, 1000);
+            }
+        }
+
+        // DATABASE SIMULASI LOKAL (Agar preview tanpa server lancar jaya)
+        let localTransactionDb = [];
+
+        function generateDummyData() {
+            localTransactionDb = [];
+            const tglSaja = [1, 2, 4, 5, 5, 5, 6, 7, 7, 8, 10, 11, 12, 14, 15, 20, 25, 26, 27, 28, 29, 30];
+            
+            masterData.forEach(item => {
+                tglSaja.forEach(tgl => {
+                    const randomQty = Math.floor(Math.random() * 8) + 1; 
+                    const formattedDate = `2026-07-${tgl < 10 ? '0' + tgl : tgl}`;
+                    localTransactionDb.push({
+                        tanggal: formattedDate,
+                        menu: item.menu,
+                        qty: randomQty
+                    });
+                });
+            });
+        }
+
+        function simulateLocalSave(dateStr, items) {
+            items.forEach(item => {
+                localTransactionDb.push({
+                    tanggal: dateStr,
+                    menu: item.menu,
+                    qty: item.qty
+                });
+            });
+        }
+
+        // Penarikan Data Rekap Bulanan dari Spreadsheet
+        function fetchRekapData() {
+            const bulan = document.getElementById("rekap-bulan").value;
+            const tahun = document.getElementById("rekap-tahun").value;
+            const cabang = document.getElementById("cabang-selector").value;
+            const spreadsheetId = SPREADSHEET_IDS[cabang];
+            const apiUrl = getGasApiUrl();
+
+            const tbody = document.getElementById("rekap-table-body");
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="33" class="text-center py-20 text-slate-400">
+                        <i class="fa-solid fa-circle-notch animate-spin text-2xl text-indigo-500 mb-2"></i>
+                        <p class="text-xs font-semibold">Mengambil Data Rekap...</p>
+                    </td>
+                </tr>
+            `;
+
+            if (apiUrl) {
+                fetch(apiUrl, {
+                    method: "POST",
+                    mode: "cors",
+                    headers: {
+                        "Content-Type": "text/plain"
+                    },
+                    body: JSON.stringify({
+                        action: "getMonthlyReport",
+                        spreadsheetId: spreadsheetId,
+                        bulan: bulan,
+                        tahun: tahun
+                    })
+                })
+                .then(res => res.json())
+                .then(resData => {
+                    if (resData.status === "success") {
+                        onRekapDataReceived(resData.data);
+                    } else {
+                        showNotification("error", "Gagal Rekap", resData.message);
+                        loadLocalReportDemo(bulan, tahun);
+                    }
+                })
+                .catch(err => {
+                    showNotification("error", "Koneksi Gagal", "Gagal menghubungi server. Memuat rekap lokal.");
+                    loadLocalReportDemo(bulan, tahun);
+                });
+            } else {
+                setTimeout(() => {
+                    loadLocalReportDemo(bulan, tahun);
+                }, 800);
+            }
+        }
+
+        function loadLocalReportDemo(bulan, tahun) {
+            const mockResponse = buildMockReportData(parseInt(bulan), parseInt(tahun));
+            onRekapDataReceived(mockResponse);
+        }
+
+        // Menyusun format matriks rekap dari DB simulasi lokal
+        function buildMockReportData(bulan, tahun) {
+            const tableData = {};
+            const prefix = `${tahun}-${bulan < 10 ? '0' + bulan : bulan}`;
+
+            masterData.forEach(item => {
+                tableData[item.menu] = {};
+                for (let i = 1; i <= 31; i++) {
+                    tableData[item.menu][i] = 0;
+                }
+            });
+
+            localTransactionDb.forEach(tx => {
+                if (tx.tanggal.startsWith(prefix)) {
+                    const tgl = parseInt(tx.tanggal.split("-")[2]);
+                    if (tableData[tx.menu]) {
+                        tableData[tx.menu][tgl] = (tableData[tx.menu][tgl] || 0) + tx.qty;
+                    }
+                }
+            });
+
+            // Hitung Menu Terlaris Bulan Ini
+            const monthlyRank = [];
+            masterData.forEach(item => {
+                let total = 0;
+                for (let i = 1; i <= 31; i++) {
+                    total += tableData[item.menu][i] || 0;
+                }
+                monthlyRank.push({ menu: item.menu, total: total });
+            });
+            monthlyRank.sort((a, b) => b.total - a.total);
+
+            // Hitung Menu Terlaris Sepanjang Waktu
+            const alltimeRankMap = {};
+            masterData.forEach(m => { alltimeRankMap[m.menu] = 0; });
+            localTransactionDb.forEach(tx => {
+                if (alltimeRankMap[tx.menu] !== undefined) {
+                    alltimeRankMap[tx.menu] += tx.qty;
+                }
+            });
+            const alltimeRank = Object.entries(alltimeRankMap).map(([menu, total]) => ({ menu, total }));
+            alltimeRank.sort((a, b) => b.total - a.total);
+
+            return {
+                tableData: tableData,
+                topMonthly: monthlyRank,
+                topAlltime: alltimeRank
+            };
+        }
+
+        // Callback ketika data rekap sukses didapatkan
+        function onRekapDataReceived(response) {
+            const reportData = response.tableData || response;
+            currentReportData = reportData; 
+            
+            rankedMonthData = response.topMonthly || [];
+            rankedAlltimeData = response.topAlltime || [];
+
+            renderDashboardTop3();
+
+            const tbody = document.getElementById("rekap-table-body");
+            tbody.innerHTML = "";
+
+            const categories = [...new Set(masterData.map(item => item.kategori))];
+
+            if (categories.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="33" class="text-center py-20 text-slate-500">
+                            Tidak ada data menu untuk direkap.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            categories.forEach(cat => {
+                const itemsInCat = masterData.filter(item => item.kategori === cat);
+                
+                const catRow = document.createElement("tr");
+                catRow.className = "bg-white/5 border-b border-white/5";
+                catRow.innerHTML = `
+                    <td colspan="33" class="px-3 py-1.5 text-[9px] font-extrabold tracking-widest text-indigo-400 bg-indigo-950/20 uppercase">${cat}</td>
+                `;
+                tbody.appendChild(catRow);
+
+                itemsInCat.forEach(item => {
+                    const row = document.createElement("tr");
+                    row.className = "border-b border-white/5 hover:bg-white/5 cursor-pointer row-menu transition-colors";
+                    row.onclick = function(e) {
+                        if (e.target.tagName === "TD" && !e.target.classList.contains("sticky-left-col") && !e.target.classList.contains("sticky-right-col")) {
+                            return;
+                        }
+                        toggleRowHighlight(this);
+                    };
+
+                    const rowData = reportData[item.menu] || {};
+                    let totalPorsi = 0;
+
+                    let cellsHtml = `<td class="px-3 py-2.5 font-semibold text-slate-300 truncate sticky-left-col">${item.menu}</td>`;
+
+                    for (let i = 1; i <= 31; i++) {
+                        const val = rowData[i] || 0;
+                        totalPorsi += val;
+                        
+                        const displayVal = val > 0 ? val : "";
+                        const bgWeight = val > 0 ? `style="background-color: rgba(16, 185, 129, ${Math.min(val * 0.1, 0.4)})"` : "";
+                        const textWeight = val > 0 ? "text-emerald-400 font-extrabold" : "text-slate-600";
+
+                        cellsHtml += `<td ${bgWeight} class="text-center font-mono border-r border-white/5 text-[11px] ${textWeight} cell-data cursor-crosshair hover:bg-indigo-500/30 col-idx-${i}" onclick="toggleCellHighlight(this, ${i})">${displayVal}</td>`;
+                    }
+
+                    cellsHtml += `<td class="text-center font-bold text-slate-100 font-mono sticky-right-col bg-indigo-950/40 text-[11px]">${totalPorsi > 0 ? totalPorsi : ""}</td>`;
+
+                    row.innerHTML = cellsHtml;
+                    tbody.appendChild(row);
+                });
+            });
+        }
+
+        function renderDashboardTop3() {
+            const monthlyContainer = document.getElementById("top-monthly-list");
+            const alltimeContainer = document.getElementById("top-alltime-list");
+
+            monthlyContainer.innerHTML = "";
+            alltimeContainer.innerHTML = "";
+
+            const rankIcons = ["🥇", "🥈", "🥉"];
+
+            const topMonth = rankedMonthData.slice(0, 3);
+            if (topMonth.length === 0 || topMonth.every(i => i.total === 0)) {
+                monthlyContainer.innerHTML = `<p class="text-[10px] text-slate-500 font-medium py-3 text-center">Belum ada transaksi</p>`;
+            } else {
+                topMonth.forEach((item, index) => {
+                    const row = document.createElement("div");
+                    row.className = "flex justify-between items-center text-[10px] py-0.5 border-b border-white/5 last:border-0";
+                    row.innerHTML = `
+                        <span class="truncate pr-1 font-medium text-slate-300">${rankIcons[index]} ${item.menu}</span>
+                        <span class="font-bold text-emerald-400 shrink-0 font-mono">${item.total}x</span>
+                    `;
+                    monthlyContainer.appendChild(row);
+                });
+            }
+
+            const topAlltime = rankedAlltimeData.slice(0, 3);
+            if (topAlltime.length === 0 || topAlltime.every(i => i.total === 0)) {
+                alltimeContainer.innerHTML = `<p class="text-[10px] text-slate-500 font-medium py-3 text-center">Belum ada data</p>`;
+            } else {
+                topAlltime.forEach((item, index) => {
+                    const row = document.createElement("div");
+                    row.className = "flex justify-between items-center text-[10px] py-0.5 border-b border-white/5 last:border-0";
+                    row.innerHTML = `
+                        <span class="truncate pr-1 font-medium text-slate-300">${rankIcons[index]} ${item.menu}</span>
+                        <span class="font-bold text-purple-400 shrink-0 font-mono">${item.total}x</span>
+                    `;
+                    alltimeContainer.appendChild(row);
+                });
+            }
+        }
+
+        function toggleRankingsModal(show) {
+            const modal = document.getElementById("rankings-modal");
+            if (show) {
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+                switchRankTab("month"); 
+            } else {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+
+        function showRankingsModal() {
+            toggleRankingsModal(true);
+        }
+
+        function toggleDailyRankingsModal(show) {
+            const modal = document.getElementById("daily-rankings-modal");
+            if (show) {
+                modal.classList.remove("hidden");
+                modal.classList.add("flex");
+            } else {
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            }
+        }
+
+        function showDailyRankings(tgl) {
+            const bulanNames = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
+            const bulanIdx = parseInt(document.getElementById('rekap-bulan').value) - 1;
+            const tahun = document.getElementById('rekap-tahun').value;
+            const bulanName = bulanNames[bulanIdx] || "BULAN";
+
+            document.getElementById('daily-rank-title').textContent = `Peringkat: ${tgl} ${bulanName} ${tahun}`;
+
+            const dailyData = [];
+            masterData.forEach(item => {
+                const rowData = currentReportData[item.menu] || {};
+                const qty = parseInt(rowData[tgl]) || 0;
+                if (qty > 0) {
+                    dailyData.push({ menu: item.menu, total: qty });
+                }
+            });
+
+            dailyData.sort((a, b) => b.total - a.total);
+
+            const container = document.getElementById("daily-rankings-list");
+            container.innerHTML = "";
+
+            if (dailyData.length === 0) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center text-center py-10 gap-3 text-slate-500">
+                        <i class="fa-solid fa-calendar-xmark text-4xl opacity-40"></i>
+                        <p class="text-xs font-semibold">Tidak ada transaksi penjualan di tanggal ini.</p>
+                    </div>
+                `;
+            } else {
+                dailyData.forEach((item, index) => {
+                    const row = document.createElement("div");
+                    row.className = "flex justify-between items-center bg-white/5 p-2 px-3 rounded-xl border border-white/5 animate-scale";
+                    
+                    let badge = "";
+                    if (index === 0) badge = "🥇";
+                    else if (index === 1) badge = "🥈";
+                    else if (index === 2) badge = "🥉";
+                    else badge = `<span class="text-[10px] font-bold text-slate-500 font-mono inline-block w-4 text-center">${index + 1}</span>`;
+
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 truncate">
+                            ${badge}
+                            <span class="text-xs font-semibold text-slate-200 truncate">${item.menu}</span>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-400 font-mono">${item.total} porsi</span>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+
+            toggleDailyRankingsModal(true);
+        }
+
+        function switchRankTab(tab) {
+            activeRankTab = tab;
+            const btnMonth = document.getElementById("rank-tab-month");
+            const btnAlltime = document.getElementById("rank-tab-alltime");
+
+            btnMonth.className = "py-1.5 rounded-xl text-[10px] font-bold tracking-wider text-center transition-all bg-white/5 border border-white/5 text-slate-400";
+            btnAlltime.className = "py-1.5 rounded-xl text-[10px] font-bold tracking-wider text-center transition-all bg-white/5 border border-white/5 text-slate-400";
+
+            let dataList = [];
+            let prefixBadge = "px";
+
+            if (tab === "month") {
+                btnMonth.className = "py-1.5 rounded-xl text-[10px] font-bold tracking-wider text-center transition-all bg-indigo-600/30 border border-indigo-500/20 text-white shadow-inner";
+                dataList = rankedMonthData;
+                prefixBadge = "porsi";
+            } else {
+                btnAlltime.className = "py-1.5 rounded-xl text-[10px] font-bold tracking-wider text-center transition-all bg-purple-600/30 border border-purple-500/20 text-white shadow-inner";
+                dataList = rankedAlltimeData;
+                prefixBadge = "total";
+            }
+
+            const container = document.getElementById("rankings-list-container");
+            container.innerHTML = "";
+
+            if (dataList.length === 0 || dataList.every(i => i.total === 0)) {
+                container.innerHTML = `<div class="text-center text-xs text-slate-500 py-10">Belum ada transaksi terekam.</div>`;
+                return;
+            }
+
+            dataList.forEach((item, index) => {
+                const div = document.createElement("div");
+                div.className = "flex justify-between items-center p-2.5 rounded-xl bg-white/5 mb-1.5 border border-white/5 text-xs animate-scale";
+                
+                let rankLabel = "";
+                if (index === 0) rankLabel = "🥇";
+                else if (index === 1) rankLabel = "🥈";
+                else if (index === 2) rankLabel = "🥉";
+                else rankLabel = `<span class="text-[10px] font-bold text-slate-500 font-mono inline-block w-4 text-center">${index + 1}</span>`;
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        ${rankLabel}
+                        <span class="font-semibold text-slate-200 truncate">${item.menu}</span>
+                    </div>
+                    <span class="font-extrabold text-indigo-400 shrink-0 font-mono">${item.total} ${prefixBadge}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function toggleDashboardCollapse() {
+            const panel = document.getElementById("dashboard-rankings-container");
+            const icon = document.getElementById("toggle-dashboard-icon");
+            const btnText = document.getElementById("toggle-dashboard-text");
+
+            if (panel.classList.contains("hidden")) {
+                panel.classList.remove("hidden");
+                icon.className = "fa-solid fa-eye-slash";
+                btnText.textContent = "Sembunyikan";
+            } else {
+                panel.classList.add("hidden");
+                icon.className = "fa-solid fa-eye";
+                btnText.textContent = "Tampilkan";
+            }
+        }
+
+        // Aktifkan / Nonaktifkan Tabel Fullscreen Overlay 1 Layar Penuh
+        function toggleFullscreenTable() {
+            const card = document.getElementById("rekap-table-card");
+            const wrapper = document.getElementById("rekap-table-wrapper");
+            const icon = document.getElementById("fullscreen-icon");
+            const btnText = document.getElementById("fullscreen-text");
+            const container = document.getElementById("app-container");
+
+            if (card.classList.contains("fixed")) {
+                card.className = "flex-grow flex flex-col glass-card border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 relative";
+                wrapper.style.height = "";
+                icon.className = "fa-solid fa-expand";
+                btnText.textContent = "FULLSCREEN";
+                container.classList.remove("fullscreen-active");
+            } else {
+                card.className = "fixed inset-0 z-[100] flex flex-col bg-[#0c0c1e] p-6 overflow-hidden shadow-2xl animate-scale w-screen h-screen left-0 top-0";
+                wrapper.style.height = "calc(100dvh - 100px)"; 
+                icon.className = "fa-solid fa-compress";
+                btnText.textContent = "MINIMIZE";
+                container.classList.add("fullscreen-active");
+            }
+        }
+
+        function toggleColumnHighlight(colIdx) {
+            document.querySelectorAll(".highlight-col").forEach(el => el.classList.remove("highlight-col"));
+            document.querySelectorAll(".highlight-cell").forEach(el => el.classList.remove("highlight-cell"));
+
+            if (activeColHighlight === colIdx) {
+                activeColHighlight = null; 
+                return;
+            }
+
+            activeColHighlight = colIdx;
+
+            document.querySelectorAll(`.col-idx-${colIdx}`).forEach(el => {
+                el.classList.add("highlight-col");
+            });
+
+            const header = document.querySelector(`.col-header-${colIdx}`);
+            if (header) header.classList.add("highlight-col");
+        }
+
+        function toggleRowHighlight(trElement) {
+            document.querySelectorAll(".highlight-row").forEach(el => el.classList.remove("highlight-row"));
+
+            if (activeRowHighlight === trElement) {
+                activeRowHighlight = null; 
+                return;
+            }
+
+            activeRowHighlight = trElement;
+            trElement.classList.add("highlight-row");
+        }
+
+        function toggleCellHighlight(tdElement, colIdx) {
+            document.querySelectorAll(".highlight-row").forEach(el => el.classList.remove("highlight-row"));
+            document.querySelectorAll(".highlight-col").forEach(el => el.classList.remove("highlight-col"));
+            document.querySelectorAll(".highlight-cell").forEach(el => el.classList.remove("highlight-cell"));
+
+            const parentRow = tdElement.closest("tr");
+
+            parentRow.classList.add("highlight-row");
+            document.querySelectorAll(`.col-idx-${colIdx}`).forEach(el => {
+                el.classList.add("highlight-col");
+            });
+
+            tdElement.classList.add("highlight-cell");
+        }
+
+        // Pendaftaran / Registrasi Service Worker PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker terdaftar di scope: ', reg.scope))
+                    .catch(err => console.warn('Pendaftaran Service Worker gagal: ', err));
+            });
+        }
+
+        // Pemicu Awal Saat Aplikasi Dimuat
+        window.onload = function() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById("order-date").value = `${year}-${month}-${day}`;
+
+            document.getElementById("rekap-bulan").value = today.getMonth() + 1;
+            document.getElementById("rekap-tahun").value = year;
+
+            generateTableHeaderDays();
+            checkApiConnection();
+            fetchMasterMenu();
+        };
+    </script>
+</body>
+</html>
